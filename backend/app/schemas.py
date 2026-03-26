@@ -24,7 +24,6 @@ class UserCreate(BaseModel):
     email: EmailStr
     phone: str
     password: str = Field(min_length=8)
-    role: UserRole = UserRole.customer
     preferred_language: str = "ar"
 
 

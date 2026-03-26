@@ -36,6 +36,7 @@ class ApiClient {
 
   Future<Booking> createBooking({
     required int serviceId,
+    required String city,
     required String district,
     required String addressDetails,
     required DateTime scheduledAt,
@@ -48,6 +49,7 @@ class ApiClient {
       '/bookings',
       data: {
         'service_id': serviceId,
+        'city': city,
         'district': district,
         'address_details': addressDetails,
         'scheduled_at': scheduledAt.toUtc().toIso8601String(),

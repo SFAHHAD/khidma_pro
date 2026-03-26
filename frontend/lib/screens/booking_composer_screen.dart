@@ -15,6 +15,9 @@ class BookingComposerScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingComposerScreenState extends ConsumerState<BookingComposerScreen> {
+  static const _launchCities = ['Kuwait City', 'Al Ahmadi'];
+
+  String _selectedCity = _launchCities.first;
   final _districtController = TextEditingController();
   final _addressController = TextEditingController();
   final _notesController = TextEditingController();
@@ -62,6 +65,7 @@ class _BookingComposerScreenState extends ConsumerState<BookingComposerScreen> {
       final api = ref.read(apiClientProvider);
       final booking = await api.createBooking(
         serviceId: widget.service.id,
+        city: _selectedCity,
         district: _districtController.text.trim(),
         addressDetails: _addressController.text.trim(),
         scheduledAt: _scheduledAt,
@@ -89,6 +93,19 @@ class _BookingComposerScreenState extends ConsumerState<BookingComposerScreen> {
           const SizedBox(height: 8),
           Text('Estimated price: ${widget.service.basePriceKwd.toStringAsFixed(2)} KWD'),
           const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedCity,
+            decoration: const InputDecoration(labelText: 'City'),
+            items: _launchCities
+                .map((city) => DropdownMenuItem<String>(value: city, child: Text(city)))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedCity = value);
+              }
+            },
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _districtController,
             decoration: const InputDecoration(labelText: 'District'),

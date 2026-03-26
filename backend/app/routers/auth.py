@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models import User
+from app.models import User, UserRole
 from app.schemas import LoginInput, TokenOut, UserCreate, UserOut
 from app.security import create_access_token, hash_password, verify_password
 
@@ -19,7 +19,8 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         full_name=payload.full_name,
         email=payload.email,
         phone=payload.phone,
-        role=payload.role,
+        # Registration is customer-only; provider/admin assignment is internal.
+        role=UserRole.customer,
         preferred_language=payload.preferred_language,
         password_hash=hash_password(payload.password),
     )

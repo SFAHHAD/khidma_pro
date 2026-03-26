@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -26,13 +28,20 @@ def create_booking(
             detail=f"City not supported for MVP launch. Allowed cities: {', '.join(settings.launch_cities)}",
         )
 
+    scheduled_at = payload.scheduled_at
+    if scheduled_at.tzinfo is None:
+        scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+    if scheduled_at <= now_utc:
+        raise HTTPException(status_code=400, detail="scheduled_at must be in the future")
+
     booking = Booking(
         customer_id=customer.id,
         service_id=payload.service_id,
         city=payload.city,
         district=payload.district,
         address_details=payload.address_details,
-        scheduled_at=payload.scheduled_at,
+        scheduled_at=scheduled_at,
         notes=payload.notes,
         price_estimate_kwd=service.base_price_kwd,
         status=BookingStatus.pending,
