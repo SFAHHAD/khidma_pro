@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: khidma-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-khidma}
+      POSTGRES_USER: ${DB_USER:-khidma}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-khidma}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-khidma} -d ${DB_NAME:-khidma}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: khidma-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-khidma}
+      DB_USER: ${DB_USER:-khidma}
+      DB_PASSWORD: ${DB_PASSWORD:-khidma}
+      DATABASE_URL: postgresql+psycopg2://${DB_USER:-khidma}:${DB_PASSWORD:-khidma}@db:5432/${DB_NAME:-khidma}
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=3)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres_data:

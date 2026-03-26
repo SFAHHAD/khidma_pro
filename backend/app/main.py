@@ -1,8 +1,9 @@
 from fastapi import FastAPI
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db.database import Base, engine
+from app.db.database import Base, SessionLocal, engine
 from app.models import Service, ServiceCategory
 from app.routers import auth, bookings, categories, providers
 
@@ -21,6 +22,16 @@ def health():
         "launch_country": settings.launch_country,
         "launch_cities": settings.launch_cities,
     }
+
+
+@app.get("/ready")
+def readiness():
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ready", "database": "ok"}
+    finally:
+        db.close()
 
 
 def seed_initial_catalog():
