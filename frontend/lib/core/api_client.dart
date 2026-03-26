@@ -28,6 +28,14 @@ class ApiClient {
     return token;
   }
 
+  Future<UserProfile> getMe() async {
+    if (_token == null) {
+      throw StateError('Not logged in.');
+    }
+    final response = await _dio.get('/auth/me');
+    return UserProfile.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<List<ServiceItem>> fetchServices() async {
     final response = await _dio.get('/catalog/services');
     final data = response.data as List<dynamic>;
@@ -66,5 +74,32 @@ class ApiClient {
     final response = await _dio.get('/bookings/me');
     final data = response.data as List<dynamic>;
     return data.map((e) => Booking.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<Booking>> fetchAvailableBookings() async {
+    if (_token == null) {
+      throw StateError('Not logged in.');
+    }
+    final response = await _dio.get('/bookings/available');
+    final data = response.data as List<dynamic>;
+    return data.map((e) => Booking.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<Booking> updateBookingStatus(
+    int id,
+    String status, {
+    double? finalPrice,
+  }) async {
+    if (_token == null) {
+      throw StateError('Not logged in.');
+    }
+    final response = await _dio.patch(
+      '/bookings/$id/status',
+      data: {
+        'status': status,
+        if (finalPrice != null) 'final_price_kwd': finalPrice,
+      },
+    );
+    return Booking.fromJson(response.data as Map<String, dynamic>);
   }
 }

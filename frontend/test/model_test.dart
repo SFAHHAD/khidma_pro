@@ -10,6 +10,8 @@ void main() {
         'name_ar': 'إصلاح أعطال كهربائية',
         'name_en': 'Electrical Fault Fix',
         'base_price_kwd': 11,
+        'pricing_type': 'fixed',
+        'duration_estimate_min': 50,
       });
 
       expect(service.id, 1);
@@ -17,6 +19,8 @@ void main() {
       expect(service.nameAr, 'إصلاح أعطال كهربائية');
       expect(service.nameEn, 'Electrical Fault Fix');
       expect(service.basePriceKwd, 11.0);
+      expect(service.pricingType, 'fixed');
+      expect(service.durationEstimateMin, 50);
     });
   });
 
@@ -24,12 +28,17 @@ void main() {
     test('parses booking payload and date correctly', () {
       final booking = Booking.fromJson({
         'id': 10,
+        'customer_id': 1,
+        'provider_id': null,
         'service_id': 2,
         'city': 'Al Ahmadi',
         'district': 'Fahaheel',
         'address_details': 'Street 10',
         'status': 'pending',
+        'notes': 'Leak issue',
         'price_estimate_kwd': 10.5,
+        'final_price_kwd': null,
+        'created_at': '2026-03-26T11:00:00Z',
         'scheduled_at': '2026-03-26T12:30:00Z',
       });
 
@@ -38,7 +47,7 @@ void main() {
       expect(booking.city, 'Al Ahmadi');
       expect(booking.district, 'Fahaheel');
       expect(booking.addressDetails, 'Street 10');
-      expect(booking.statusRaw, 'pending');
+      expect(booking.status, 'pending');
       expect(booking.priceEstimateKwd, 10.5);
       expect(booking.scheduledAt.toUtc().toIso8601String(), '2026-03-26T12:30:00.000Z');
     });

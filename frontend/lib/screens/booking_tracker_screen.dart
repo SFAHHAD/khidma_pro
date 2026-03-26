@@ -34,7 +34,7 @@ class BookingTrackerScreen extends ConsumerWidget {
                     children: [
                       Text('Booking #${booking.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),
-                      Text('Status: ${booking.statusRaw}'),
+                      Text('Status: ${booking.status.toUpperCase()}'),
                       Text('Location: ${booking.city}, ${booking.district}'),
                       Text('Address: ${booking.addressDetails}'),
                       Text('Scheduled: $date'),

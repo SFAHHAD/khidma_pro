@@ -94,7 +94,7 @@ class _BookingComposerScreenState extends ConsumerState<BookingComposerScreen> {
           Text('Estimated price: ${widget.service.basePriceKwd.toStringAsFixed(2)} KWD'),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _selectedCity,
+            initialValue: _selectedCity,
             decoration: const InputDecoration(labelText: 'City'),
             items: _launchCities
                 .map((city) => DropdownMenuItem<String>(value: city, child: Text(city)))

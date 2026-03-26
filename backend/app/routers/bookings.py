@@ -61,6 +61,19 @@ def my_bookings(user: User = Depends(get_current_user), db: Session = Depends(ge
     return db.query(Booking).order_by(Booking.created_at.desc()).all()
 
 
+@router.get("/available", response_model=list[BookingOut])
+def available_bookings(
+    provider: User = Depends(require_role(UserRole.provider, UserRole.admin)),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Booking)
+        .filter(Booking.status == BookingStatus.pending, Booking.provider_id.is_(None))
+        .order_by(Booking.created_at.desc())
+        .all()
+    )
+
+
 @router.patch("/{booking_id}/status", response_model=BookingOut)
 def update_status(
     booking_id: int,
