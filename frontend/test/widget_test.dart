@@ -13,6 +13,6 @@ void main() {
   testWidgets('App boots to login screen', (WidgetTester tester) async {
     await tester.pumpWidget(const KhidmaProApp());
     expect(find.text('Khidma Pro'), findsOneWidget);
-    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
   });
 }

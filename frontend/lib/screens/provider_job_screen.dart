@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../core/models.dart';
 import '../core/state.dart';
+import '../core/theme.dart';
 
 class ProviderJobScreen extends ConsumerStatefulWidget {
   const ProviderJobScreen({super.key, required this.booking});
@@ -14,17 +15,17 @@ class ProviderJobScreen extends ConsumerStatefulWidget {
 }
 
 class _ProviderJobScreenState extends ConsumerState<ProviderJobScreen> {
-  late Booking _currentBooking;
+  late Booking _booking;
   bool _isUpdating = false;
 
   @override
   void initState() {
     super.initState();
-    _currentBooking = widget.booking;
+    _booking = widget.booking;
   }
 
   String? _getNextStatus() {
-    switch (_currentBooking.status) {
+    switch (_booking.status) {
       case 'pending':
         return 'accepted';
       case 'accepted':
@@ -43,35 +44,53 @@ class _ProviderJobScreenState extends ConsumerState<ProviderJobScreen> {
       case 'accepted':
         return 'Accept Job';
       case 'en_route':
-        return 'Start Route (En Route)';
+        return 'I\'m on the way';
       case 'in_progress':
-        return 'Arrived (Start Work)';
+        return 'I\'ve arrived — Start Work';
       case 'completed':
-        return 'Mark as Completed';
+        return 'Mark Job as Complete';
       default:
         return '';
     }
   }
 
+  IconData _getActionIcon(String nextStatus) {
+    switch (nextStatus) {
+      case 'accepted':
+        return Icons.check_circle_outline_rounded;
+      case 'en_route':
+        return Icons.directions_car_rounded;
+      case 'in_progress':
+        return Icons.build_rounded;
+      case 'completed':
+        return Icons.task_alt_rounded;
+      default:
+        return Icons.arrow_forward_rounded;
+    }
+  }
+
   Future<void> _updateStatus(String newStatus, {double? finalPrice}) async {
-    final previousState = _currentBooking;
+    final previous = _booking;
     setState(() {
       _isUpdating = true;
-      _currentBooking = _currentBooking.copyWith(status: newStatus, finalPriceKwd: finalPrice);
+      _booking = _booking.copyWith(status: newStatus, finalPriceKwd: finalPrice);
     });
 
     try {
-      final updated =
-          await ref.read(apiClientProvider).updateBookingStatus(_currentBooking.id, newStatus, finalPrice: finalPrice);
-      setState(() => _currentBooking = updated);
-
+      final updated = await ref
+          .read(apiClientProvider)
+          .updateBookingStatus(_booking.id, newStatus, finalPrice: finalPrice);
+      setState(() => _booking = updated);
       ref.invalidate(availableBookingsProvider);
       ref.invalidate(myBookingsProvider);
     } catch (e) {
-      setState(() => _currentBooking = previousState);
+      setState(() => _booking = previous);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed. Rolling back. (${e.toString()})'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Update failed: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -80,7 +99,7 @@ class _ProviderJobScreenState extends ConsumerState<ProviderJobScreen> {
   }
 
   Future<void> _handleCompleteAction() async {
-    final controller = TextEditingController(text: _currentBooking.priceEstimateKwd.toStringAsFixed(2));
+    final controller = TextEditingController(text: _booking.priceEstimateKwd.toStringAsFixed(2));
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -88,98 +107,250 @@ class _ProviderJobScreenState extends ConsumerState<ProviderJobScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Confirm final price (KWD). Adjust if extra parts were needed.'),
-            const SizedBox(height: 12),
+            Text(
+              'Confirm the final price in KWD. Adjust if extra parts were needed.',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Final Price (KWD)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Final Price (KWD)',
+                prefixIcon: Icon(Icons.payments_rounded),
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Complete')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Complete Job')),
         ],
       ),
     );
 
     if (confirmed == true && mounted) {
-      final price = double.tryParse(controller.text) ?? _currentBooking.priceEstimateKwd;
+      final price = double.tryParse(controller.text) ?? _booking.priceEstimateKwd;
       _updateStatus('completed', finalPrice: price);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final time = DateFormat('EEEE, MMM d @ h:mm a').format(_currentBooking.scheduledAt.toLocal());
+    final scheme = Theme.of(context).colorScheme;
+    final time = DateFormat('EEEE, MMM d').format(_booking.scheduledAt.toLocal());
+    final timeOnly = DateFormat('h:mm a').format(_booking.scheduledAt.toLocal());
     final nextStatus = _getNextStatus();
+    final isCompleted = _booking.status == 'completed';
+    final isCancelled = _booking.status == 'cancelled';
 
     return Scaffold(
-      appBar: AppBar(title: Text('Job #${_currentBooking.id}')),
+      appBar: AppBar(
+        title: Text('Job #${_booking.id}'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: StatusBadge(_booking.status),
+          ),
+        ],
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
+          // Location card
           Card(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('LOCATION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  const SizedBox(height: 4),
-                  Text('${_currentBooking.addressDetails}, ${_currentBooking.district}', style: const TextStyle(fontSize: 18)),
-                  Text(_currentBooking.city, style: const TextStyle(fontSize: 16)),
+                  const SectionLabel('LOCATION'),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_booking.addressDetails}, ${_booking.district}',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(_booking.city, style: TextStyle(fontSize: 15, color: Colors.grey.shade600)),
                   const SizedBox(height: 16),
-                  const Text('SCHEDULED', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  const SizedBox(height: 4),
-                  Text(time, style: const TextStyle(fontSize: 16)),
+                  const SectionLabel('SCHEDULED'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today_rounded, size: 16, color: scheme.primary),
+                      const SizedBox(width: 6),
+                      Text(time, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 10),
+                      Icon(Icons.access_time_rounded, size: 16, color: scheme.primary),
+                      const SizedBox(width: 6),
+                      Text(timeOnly, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          if (_currentBooking.notes != null && _currentBooking.notes!.trim().isNotEmpty) ...[
-            const Text('ISSUE NOTES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 4),
-            Text(_currentBooking.notes!, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // Notes card (if present)
+          if (_booking.notes != null && _booking.notes!.trim().isNotEmpty) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionLabel('CUSTOMER NOTES'),
+                    const SizedBox(height: 8),
+                    Text(_booking.notes!, style: const TextStyle(fontSize: 15)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
-          const Text('FINANCIALS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Text('Estimate: ${_currentBooking.priceEstimateKwd.toStringAsFixed(2)} KWD', style: const TextStyle(fontSize: 16)),
-          Text(
-            'Final: ${_currentBooking.finalPriceKwd != null ? "${_currentBooking.finalPriceKwd!.toStringAsFixed(2)} KWD" : "Pending"}',
-            style: const TextStyle(fontSize: 16),
+
+          // Financials card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionLabel('PRICING'),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _FinanceItem(
+                        label: 'Estimate',
+                        value: '${_booking.priceEstimateKwd.toStringAsFixed(2)} KWD',
+                      ),
+                      if (_booking.finalPriceKwd != null) ...[
+                        const SizedBox(width: 16),
+                        _FinanceItem(
+                          label: 'Final',
+                          value: '${_booking.finalPriceKwd!.toStringAsFixed(2)} KWD',
+                          primary: true,
+                        ),
+                      ] else ...[
+                        const SizedBox(width: 16),
+                        const _FinanceItem(label: 'Final', value: 'Pending'),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
+
+          // Completed state message
+          if (isCompleted) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E7D32).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF2E7D32).withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.task_alt_rounded, color: Color(0xFF2E7D32), size: 22),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Job completed successfully.',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (isCancelled) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.cancel_outlined, color: Colors.grey.shade500, size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    'This booking was cancelled.',
+                    style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 80),
         ],
       ),
       bottomNavigationBar: nextStatus != null
           ? SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: SizedBox(
-                  height: 56,
-                  child: FilledButton(
-                    onPressed: _isUpdating
-                        ? null
-                        : () {
-                            if (nextStatus == 'completed') {
-                              _handleCompleteAction();
-                            } else {
-                              _updateStatus(nextStatus);
-                            }
-                          },
-                    style: FilledButton.styleFrom(backgroundColor: nextStatus == 'completed' ? Colors.green : null),
-                    child: _isUpdating
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(_getActionLabel(nextStatus), style: const TextStyle(fontSize: 18)),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: FilledButton.icon(
+                  onPressed: _isUpdating
+                      ? null
+                      : () {
+                          if (nextStatus == 'completed') {
+                            _handleCompleteAction();
+                          } else {
+                            _updateStatus(nextStatus);
+                          }
+                        },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: nextStatus == 'completed' ? const Color(0xFF2E7D32) : scheme.primary,
+                    minimumSize: const Size.fromHeight(56),
                   ),
+                  icon: _isUpdating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                        )
+                      : Icon(_getActionIcon(nextStatus)),
+                  label: _isUpdating
+                      ? const Text('Updating…')
+                      : Text(_getActionLabel(nextStatus)),
                 ),
               ),
             )
           : const SizedBox.shrink(),
+    );
+  }
+}
+
+class _FinanceItem extends StatelessWidget {
+  const _FinanceItem({required this.label, required this.value, this.primary = false});
+  final String label;
+  final String value;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: primary ? scheme.primary : Colors.grey.shade800,
+          ),
+        ),
+      ],
     );
   }
 }
